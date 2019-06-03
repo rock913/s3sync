@@ -39,7 +39,7 @@ func main() {
 	runtime.GOMAXPROCS(runtime.NumCPU() * goThreadsPerCPU)
 	objChan := make(chan Object, cli.Workers*4)
 	wg := sync.WaitGroup{}
-	prgBarQuit := make(chan bool)
+	//prgBarQuit := make(chan bool)
 
 	for i := cli.Workers; i != 0; i-- {
 		wg.Add(1)
@@ -84,9 +84,9 @@ func main() {
 	}
 
 	wg.Wait()
-	if isatty.IsTerminal(os.Stdout.Fd()) {
-		prgBarQuit <- true
-	}
+	//if isatty.IsTerminal(os.Stdout.Fd()) {
+	//	prgBarQuit <- true
+	//}
 	dur := time.Since(counter.startTime).Seconds()
 	log.Info("Sync finished successfully")
 	log.Infof("Synced: %d; Skipped: %d; Failed: %d; Total processed: %d", counter.sucObjCnt, counter.skipObjCnt, counter.failObjCnt, counter.totalObjCnt)

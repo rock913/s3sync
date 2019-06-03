@@ -81,7 +81,8 @@ func (storage S3Storage) List(output chan<- Object) error {
 			for _, o := range p.CommonPrefixes {
 				log.Debugf("Found common prefix: %s\n", aws.StringValue(o.Prefix))
 				wg.Add(1)
-				prefixChan.In() <- aws.StringValue(o.Prefix)
+				prefix, _ := url.QueryUnescape(aws.StringValue(o.Prefix))
+				prefixChan.In() <- prefix
 			}
 			for _, o := range p.Contents {
 				log.Debugf("Found file: %s\n", aws.StringValue(o.Key))
