@@ -76,7 +76,7 @@ func main() {
 	counter.startTime = time.Now()
 
 	if isatty.IsTerminal(os.Stdout.Fd()) {
-		go startProgressBar(prgBarQuit)
+		//go startProgressBar(prgBarQuit)
 	}
 
 	if err := syncGr.Source.List(objChan); err != nil {

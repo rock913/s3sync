@@ -79,10 +79,12 @@ func (storage S3Storage) List(output chan<- Object) error {
 	listObjectsRecursive := func(prefixChan *channels.InfiniteChannel, output chan<- Object) {
 		listObjectsFn := func(p *s3.ListObjectsOutput, lastPage bool) bool {
 			for _, o := range p.CommonPrefixes {
+				log.Debugf("Found common prefix: %s\n", aws.StringValue(o.Prefix))
 				wg.Add(1)
 				prefixChan.In() <- aws.StringValue(o.Prefix)
 			}
 			for _, o := range p.Contents {
+				log.Debugf("Found file: %s\n", aws.StringValue(o.Key))
 				atomic.AddUint64(&counter.totalObjCnt, 1)
 				key, _ := url.QueryUnescape(aws.StringValue(o.Key))
 				output <- Object{Key: key, ETag: aws.StringValue(o.ETag), Mtime: aws.TimeValue(o.LastModified)}
@@ -91,6 +93,7 @@ func (storage S3Storage) List(output chan<- Object) error {
 		}
 
 		for prefix := range prefixChan.Out() {
+			log.Debugf("Processing prefix: %s", prefix.(string))
 			for i := uint(0); i <= storage.retry; i++ {
 				if stopListing {
 					wg.Done()
