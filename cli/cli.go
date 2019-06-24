@@ -7,6 +7,7 @@ import (
 	"github.com/mattn/go-isatty"
 	"net/url"
 	"os"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -31,6 +32,8 @@ type argsParsed struct {
 	Target          connect
 	S3RetryInterval time.Duration
 	OnFail          onFailAction
+	FSFilePerm      os.FileMode
+	FSDirPerm       os.FileMode
 }
 
 type connect struct {
@@ -56,6 +59,10 @@ type args struct {
 	S3Retry         uint   `arg:"--s3-retry" help:"Max numbers of retries to sync file"`
 	S3RetryInterval uint   `arg:"--s3-retry-sleep" help:"Sleep interval (sec) between sync retries on error"`
 	S3Acl           string `arg:"--s3-acl" help:"S3 ACL for uploaded files. Possible values: private, public-read, public-read-write, aws-exec-read, authenticated-read, bucket-owner-read, bucket-owner-full-control"`
+	S3KeysPerReq    int64  `arg:"--s3-keys-per-req" help:"Max numbers of keys retrieved via List request"`
+	// FS config
+	FSFilePerm string `arg:"--fs-file-perm" help:"File permissions"`
+	FSDirPerm  string `arg:"--fs-dir-perm" help:"Dir permissions"`
 	// Filters
 	FilterExt         []string `arg:"--filter-ext,separate" help:"Sync only files with given extensions"`
 	FilterExtNot      []string `arg:"--filter-not-ext,separate" help:"Skip files with given extensions"`
@@ -72,9 +79,9 @@ type args struct {
 	DisableHTTP2 bool   `arg:"--disable-http2" help:"Disable HTTP2 for http client"`
 }
 
-//Version return program version string on human format
+//VersionId return program version string on human format
 func (args) Version() string {
-	return fmt.Sprintf("Version: %v, commit: %v, built at: %v", version, commit, date)
+	return fmt.Sprintf("VersionId: %v, commit: %v, built at: %v", version, commit, date)
 }
 
 //Description return program description string
@@ -91,7 +98,10 @@ func GetCliArgs() (cli argsParsed, err error) {
 	rawCli.S3Retry = 0
 	rawCli.S3RetryInterval = 0
 	rawCli.S3Acl = "private"
+	rawCli.S3KeysPerReq = 1000
 	rawCli.OnFail = "fatal"
+	rawCli.FSDirPerm = "0755"
+	rawCli.FSFilePerm = "0644"
 
 	p := arg.MustParse(&rawCli)
 	cli.args = rawCli
@@ -135,6 +145,22 @@ func GetCliArgs() (cli argsParsed, err error) {
 	}
 	if cli.args.ShowProgress && !isatty.IsTerminal(os.Stdout.Fd()) {
 		p.Fail("Progress (--sync-progress) require tty")
+	}
+
+	if filePerm, err := strconv.ParseUint(cli.args.FSFilePerm, 8, 32); err != nil {
+		p.Fail("Failed to parse arg --fs-file-perm")
+	} else {
+		cli.FSFilePerm = os.FileMode(filePerm)
+	}
+
+	if dirPerm, err := strconv.ParseUint(cli.args.FSDirPerm, 8, 32); err != nil {
+		p.Fail("Failed to parse arg --fs-dir-perm")
+	} else {
+		cli.FSDirPerm = os.FileMode(dirPerm)
+	}
+
+	if cli.DisableHTTP2 {
+		_ = os.Setenv("GODEBUG", os.Getenv("GODEBUG")+"http2client=0")
 	}
 
 	return

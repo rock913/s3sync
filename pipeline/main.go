@@ -9,10 +9,6 @@ import (
 
 var Log = logrus.New()
 
-func init() {
-	storage.Log = Log
-}
-
 type Group struct {
 	Source  storage.Storage
 	Target  storage.Storage
@@ -94,7 +90,7 @@ func (group *Group) Run() {
 			close(group.steps[i].outChan)
 		}(i)
 
-		if i>0 {
+		if i > 0 {
 			go func(i int) {
 				for obj := range group.steps[i-1].outChan {
 					group.steps[i].stats.Input += 1

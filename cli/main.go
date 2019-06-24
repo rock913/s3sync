@@ -22,14 +22,12 @@ var log = logrus.New()
 var live *uilive.Writer
 
 const (
-	permDir         os.FileMode = 0750
-	permFile        os.FileMode = 0640
-	s3keysPerReq                = 10000
-	fsListBufSize               = 32 * 1024 * 1024
-	goThreadsPerCPU             = 8
+	fsListBufSize   = 32 * 1024 * 1024
+	goThreadsPerCPU = 8
 )
 
 func init() {
+	runtime.GOMAXPROCS(runtime.NumCPU() * goThreadsPerCPU)
 	var err error
 	cli, err = GetCliArgs()
 	if err != nil {
@@ -49,11 +47,6 @@ func init() {
 }
 
 func main() {
-	if cli.DisableHTTP2 {
-		_ = os.Setenv("GODEBUG", os.Getenv("GODEBUG")+"http2client=0")
-	}
-
-	runtime.GOMAXPROCS(runtime.NumCPU() * goThreadsPerCPU)
 	ctx, cancel := context.WithCancel(context.Background())
 
 	syncGroup := pipeline.NewGroup()
@@ -66,20 +59,19 @@ func main() {
 	switch cli.Source.Type {
 	case storage.TypeS3:
 		sourceStorage = storage.NewS3Storage(cli.SourceKey, cli.SourceSecret, cli.SourceRegion, cli.SourceEndpoint,
-			cli.Source.Bucket, cli.Source.Path, s3keysPerReq, cli.S3Retry, cli.S3RetryInterval,
+			cli.Source.Bucket, cli.Source.Path, cli.S3KeysPerReq, cli.S3Retry, cli.S3RetryInterval,
 		)
 	case storage.TypeFS:
-		sourceStorage = storage.NewFSStorage(cli.Source.Path, permFile, permDir, fsListBufSize)
+		sourceStorage = storage.NewFSStorage(cli.Source.Path, cli.FSFilePerm, cli.FSDirPerm, fsListBufSize)
 	}
 
 	switch cli.Target.Type {
 	case storage.TypeS3:
 		targetStorage = storage.NewS3Storage(cli.TargetKey, cli.TargetSecret, cli.TargetRegion, cli.TargetEndpoint,
-			cli.Target.Bucket, cli.Target.Path, s3keysPerReq, cli.S3Retry, cli.S3RetryInterval,
+			cli.Target.Bucket, cli.Target.Path, cli.S3KeysPerReq, cli.S3Retry, cli.S3RetryInterval,
 		)
-
 	case storage.TypeFS:
-		targetStorage = storage.NewFSStorage(cli.Target.Path, permFile, permDir, 0)
+		targetStorage = storage.NewFSStorage(cli.Target.Path, cli.FSFilePerm, cli.FSDirPerm, 0)
 	}
 
 	sourceStorage.WithContext(ctx)
@@ -153,16 +145,18 @@ func main() {
 	}
 
 	syncGroup.AddPipeStep(pipeline.Step{
-		Name:   "ACLUpdater",
-		Fn:     collection.ACLUpdater,
-		Config: cli.S3Acl,
-	})
-
-	syncGroup.AddPipeStep(pipeline.Step{
 		Name:       "LoadObjData",
 		Fn:         collection.LoadObjectData,
 		AddWorkers: cli.Workers,
 	})
+
+	if cli.Target.Type == storage.TypeS3 {
+		syncGroup.AddPipeStep(pipeline.Step{
+			Name:   "ACLUpdater",
+			Fn:     collection.ACLUpdater,
+			Config: cli.S3Acl,
+		})
+	}
 
 	syncGroup.AddPipeStep(pipeline.Step{
 		Name:       "UploadObj",
@@ -197,7 +191,7 @@ func main() {
 				default:
 					dur := time.Since(syncStartTime).Seconds()
 					for _, val := range syncGroup.GetStepsInfo() {
-						_, _ = fmt.Fprintf(live,"%d %s: Input: %d; Output: %d (%.f obj/sec); Errors: %d\n", val.Num, val.Name, val.Stats.Input, val.Stats.Output, float64(val.Stats.Output)/dur, val.Stats.Error)
+						_, _ = fmt.Fprintf(live, "%d %s: Input: %d; Output: %d (%.f obj/sec); Errors: %d\n", val.Num, val.Name, val.Stats.Input, val.Stats.Output, float64(val.Stats.Output)/dur, val.Stats.Error)
 					}
 					time.Sleep(time.Second)
 				}
