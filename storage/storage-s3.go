@@ -208,8 +208,8 @@ func (storage *S3Storage) GetObjectMeta(obj *Object) error {
 
 func (storage *S3Storage) DeleteObject(obj *Object) error {
 	input := &s3.DeleteObjectInput{
-		Bucket:    storage.awsBucket,
-		Key:       obj.Key,
+		Bucket: storage.awsBucket,
+		Key:    obj.Key,
 	}
 
 	for i := uint(0); ; i++ {

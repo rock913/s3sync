@@ -78,7 +78,7 @@ func (storage *S3vStorage) List(output chan<- *Object) error {
 	listObjectsFn := func(p *s3.ListObjectVersionsOutput, lastPage bool) bool {
 		for _, o := range p.Versions {
 			key, _ := url.QueryUnescape(aws.StringValue(o.Key))
-			output <- &Object{Key: &key, VersionId:  o.VersionId,ETag: o.ETag, Mtime: o.LastModified}
+			output <- &Object{Key: &key, VersionId: o.VersionId, ETag: o.ETag, Mtime: o.LastModified}
 		}
 		storage.listMarker = p.VersionIdMarker
 		return !lastPage // continue paging
@@ -139,8 +139,8 @@ func (storage *S3vStorage) PutObject(obj *Object) error {
 //GetObjectContent download object content from S3
 func (storage *S3vStorage) GetObjectContent(obj *Object) error {
 	input := &s3.GetObjectInput{
-		Bucket: storage.awsBucket,
-		Key:    obj.Key,
+		Bucket:    storage.awsBucket,
+		Key:       obj.Key,
 		VersionId: obj.VersionId,
 	}
 
@@ -180,8 +180,8 @@ func (storage *S3vStorage) GetObjectContent(obj *Object) error {
 //GetObjectMeta update object metadata from S3
 func (storage *S3vStorage) GetObjectMeta(obj *Object) error {
 	input := &s3.HeadObjectInput{
-		Bucket: storage.awsBucket,
-		Key:    obj.Key,
+		Bucket:    storage.awsBucket,
+		Key:       obj.Key,
 		VersionId: obj.VersionId,
 	}
 

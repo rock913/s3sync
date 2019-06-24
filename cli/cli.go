@@ -21,9 +21,9 @@ var (
 type onFailAction int
 
 const (
-	onFailFatal       onFailAction = 1
-	onFailSkip        onFailAction = 2
-	onFailSkipMissing onFailAction = 3
+	onFailFatal onFailAction = iota
+	onFailSkip
+	onFailSkipMissing
 )
 
 type argsParsed struct {
