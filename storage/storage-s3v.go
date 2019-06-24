@@ -16,7 +16,7 @@ import (
 )
 
 //S3Storage configuration
-type S3Storage struct {
+type S3vStorage struct {
 	awsSvc        *s3.S3
 	awsSession    *session.Session
 	awsBucket     *string
@@ -29,7 +29,7 @@ type S3Storage struct {
 }
 
 //NewS3Storage return new configured S3 storage
-func NewS3Storage(awsAccessKey, awsSecretKey, awsRegion, endpoint, bucketName, prefix string, keysPerReq int64, retryCnt uint, retryInterval time.Duration) *S3Storage {
+func NewS3vStorage(awsAccessKey, awsSecretKey, awsRegion, endpoint, bucketName, prefix string, keysPerReq int64, retryCnt uint, retryInterval time.Duration) *S3vStorage {
 	sess := session.Must(session.NewSession())
 
 	sess.Config.S3ForcePathStyle = aws.Bool(true)
@@ -55,7 +55,7 @@ func NewS3Storage(awsAccessKey, awsSecretKey, awsRegion, endpoint, bucketName, p
 		sess.Config.Endpoint = aws.String(endpoint)
 	}
 
-	storage := S3Storage{
+	storage := S3vStorage{
 		awsBucket:     &bucketName,
 		awsSession:    sess,
 		awsSvc:        s3.New(sess),
@@ -69,30 +69,30 @@ func NewS3Storage(awsAccessKey, awsSecretKey, awsRegion, endpoint, bucketName, p
 	return &storage
 }
 
-func (storage *S3Storage) WithContext(ctx context.Context) {
+func (storage *S3vStorage) WithContext(ctx context.Context) {
 	storage.ctx = ctx
 }
 
 //List S3 bucket and send founded objects to chan
-func (storage *S3Storage) List(output chan<- *Object) error {
-	listObjectsFn := func(p *s3.ListObjectsOutput, lastPage bool) bool {
-		for _, o := range p.Contents {
+func (storage *S3vStorage) List(output chan<- *Object) error {
+	listObjectsFn := func(p *s3.ListObjectVersionsOutput, lastPage bool) bool {
+		for _, o := range p.Versions {
 			key, _ := url.QueryUnescape(aws.StringValue(o.Key))
-			output <- &Object{Key: &key, ETag: o.ETag, Mtime: o.LastModified}
+			output <- &Object{Key: &key, VersionId:  o.VersionId,ETag: o.ETag, Mtime: o.LastModified}
 		}
-		storage.listMarker = p.Marker
+		storage.listMarker = p.VersionIdMarker
 		return !lastPage // continue paging
 	}
 
 	for i := uint(0); ; i++ {
-		input := &s3.ListObjectsInput{
-			Bucket:       storage.awsBucket,
-			Prefix:       aws.String(storage.prefix),
-			MaxKeys:      aws.Int64(storage.keysPerReq),
-			EncodingType: aws.String(s3.EncodingTypeUrl),
-			Marker:       storage.listMarker,
+		input := &s3.ListObjectVersionsInput{
+			Bucket:          storage.awsBucket,
+			Prefix:          aws.String(storage.prefix),
+			MaxKeys:         aws.Int64(storage.keysPerReq),
+			EncodingType:    aws.String(s3.EncodingTypeUrl),
+			VersionIdMarker: storage.listMarker,
 		}
-		err := storage.awsSvc.ListObjectsPagesWithContext(storage.ctx, input, listObjectsFn)
+		err := storage.awsSvc.ListObjectVersionsPagesWithContext(storage.ctx, input, listObjectsFn)
 		if (err != nil) && (i < storage.retryCnt) {
 			Log.Debugf("S3 listing failed with error: %s", err)
 			time.Sleep(storage.retryInterval)
@@ -108,7 +108,7 @@ func (storage *S3Storage) List(output chan<- *Object) error {
 }
 
 //PutObject to bucket
-func (storage *S3Storage) PutObject(obj *Object) error {
+func (storage *S3vStorage) PutObject(obj *Object) error {
 	input := &s3.PutObjectInput{
 		Bucket:             storage.awsBucket,
 		Key:                aws.String(filepath.Join(storage.prefix, *obj.Key)),
@@ -137,10 +137,11 @@ func (storage *S3Storage) PutObject(obj *Object) error {
 }
 
 //GetObjectContent download object content from S3
-func (storage *S3Storage) GetObjectContent(obj *Object) error {
+func (storage *S3vStorage) GetObjectContent(obj *Object) error {
 	input := &s3.GetObjectInput{
 		Bucket: storage.awsBucket,
 		Key:    obj.Key,
+		VersionId: obj.VersionId,
 	}
 
 	for i := uint(0); ; i++ {
@@ -177,10 +178,11 @@ func (storage *S3Storage) GetObjectContent(obj *Object) error {
 }
 
 //GetObjectMeta update object metadata from S3
-func (storage *S3Storage) GetObjectMeta(obj *Object) error {
+func (storage *S3vStorage) GetObjectMeta(obj *Object) error {
 	input := &s3.HeadObjectInput{
 		Bucket: storage.awsBucket,
 		Key:    obj.Key,
+		VersionId: obj.VersionId,
 	}
 
 	for i := uint(0); ; i++ {
@@ -206,10 +208,11 @@ func (storage *S3Storage) GetObjectMeta(obj *Object) error {
 	}
 }
 
-func (storage *S3Storage) DeleteObject(obj *Object) error {
+func (storage *S3vStorage) DeleteObject(obj *Object) error {
 	input := &s3.DeleteObjectInput{
 		Bucket:    storage.awsBucket,
 		Key:       obj.Key,
+		VersionId: obj.VersionId,
 	}
 
 	for i := uint(0); ; i++ {
@@ -227,6 +230,6 @@ func (storage *S3Storage) DeleteObject(obj *Object) error {
 }
 
 //GetStorageType return storage type
-func (storage *S3Storage) GetStorageType() Type {
-	return TypeS3
+func (storage *S3vStorage) GetStorageType() Type {
+	return TypeS3Versioned
 }

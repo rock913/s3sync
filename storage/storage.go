@@ -12,6 +12,7 @@ type Type int
 
 const (
 	TypeS3 Type = iota + 1
+	TypeS3Versioned
 	TypeFS
 )
 
@@ -28,6 +29,7 @@ type Object struct {
 	Metadata           map[string]*string
 	ACL                *string
 	CacheControl       *string
+	VersionId          *string
 }
 
 //Storage interface
