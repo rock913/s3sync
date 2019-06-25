@@ -82,7 +82,7 @@ func main() {
 	syncGroup.AddPipeStep(pipeline.Step{
 		Name:       "ListSource",
 		Fn:         collection.ListSourceStorage,
-		AddWorkers: 0,
+		ChanSize: cli.ListBuffer,
 	})
 
 	if len(cli.FilterExt) > 0 {

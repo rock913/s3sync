@@ -12,6 +12,7 @@ type Step struct {
 	Fn         StepFn
 	AddWorkers uint
 	Config     interface{}
+	ChanSize   uint
 	outChan    chan *storage.Object
 	intOutChan chan *storage.Object
 	intInChan  chan *storage.Object

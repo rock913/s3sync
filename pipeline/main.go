@@ -43,7 +43,7 @@ func (group *Group) SetTarget(st storage.Storage) {
 func (group *Group) AddPipeStep(step Step) {
 	step.errChan = make(chan error)
 	step.workerWg = &sync.WaitGroup{}
-	step.intOutChan = make(chan *storage.Object)
+	step.intOutChan = make(chan *storage.Object, step.ChanSize)
 	step.intInChan = make(chan *storage.Object)
 	step.outChan = make(chan *storage.Object)
 	group.steps = append(group.steps, step)

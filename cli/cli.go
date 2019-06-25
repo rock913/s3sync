@@ -77,6 +77,7 @@ type args struct {
 	ShowProgress bool   `arg:"--sync-progress,-p" help:"Show sync progress"`
 	OnFail       string `arg:"--on-fail,-f" help:"Action on failed. Possible values: fatal, skip, skipmissing"`
 	DisableHTTP2 bool   `arg:"--disable-http2" help:"Disable HTTP2 for http client"`
+	ListBuffer      uint   `arg:"--list-buffer" help:"Size of list buffer"`
 }
 
 //VersionId return program version string on human format
@@ -102,6 +103,7 @@ func GetCliArgs() (cli argsParsed, err error) {
 	rawCli.OnFail = "fatal"
 	rawCli.FSDirPerm = "0755"
 	rawCli.FSFilePerm = "0644"
+	rawCli.ListBuffer = 1000
 
 	p := arg.MustParse(&rawCli)
 	cli.args = rawCli
