@@ -160,7 +160,9 @@ var FilterObjectsModified pipeline.StepFn = func(group *pipeline.Group, stepNum 
 			VersionId: obj.VersionId,
 		}
 		err := group.Target.GetObjectMeta(destObj)
-		if (err != nil) || (obj.ETag == nil || destObj.ETag == nil) || (*obj.ETag != *destObj.ETag) {
+		//if (err != nil) || (obj.ETag == nil || destObj.ETag == nil) || (*obj.ETag != *destObj.ETag) {
+		//remove ETag check beacuse aws multi-part upload will make Etag un-useable
+		if (err != nil) || (obj.ETag == nil || destObj.ETag == nil) {
 			output <- obj
 		}
 	}
